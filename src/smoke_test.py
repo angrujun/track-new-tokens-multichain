@@ -1,15 +1,13 @@
-"""Smoke test — runs each endpoint once and reports PASS / FAIL.
+"""Smoke test. Runs each on-chain endpoint once and reports PASS / FAIL.
 
-Use this to verify your API key works before running the full pipeline.
-Designed to consume minimal credits (single page per endpoint, single token info call).
+Run this before drafting an article or building a pipeline to confirm your key
+works against every endpoint used in the rest of this repo.
 """
 import sys
-import traceback
-
-from cg_client import get, MODE, print_mode_banner
+from cg_client import get, MODE
 
 
-def check(name: str, fn) -> bool:
+def check(name, fn):
     try:
         result = fn()
         ok = bool(result)
@@ -20,35 +18,27 @@ def check(name: str, fn) -> bool:
         return False
 
 
-def main() -> None:
-    print_mode_banner()
-    print("\nRunning smoke tests against the CoinGecko on-chain API...\n")
+def main():
+    print(f"CoinGecko API mode: {MODE.upper()}\n")
+    print("Running smoke tests...\n")
 
     passed = 0
     total = 0
 
-    total += 1
-    if check("GET /onchain/networks (list 250+ networks)",
-             lambda: get("/onchain/networks")["data"]):
-        passed += 1
-
-    total += 1
-    if check("GET /onchain/networks/new_pools (multi-chain)",
-             lambda: get("/onchain/networks/new_pools", params={"page": 1})["data"]):
-        passed += 1
-
-    for net in ("solana", "base", "bsc"):
+    checks = [
+        ("GET /onchain/networks",                           lambda: get("/onchain/networks")["data"]),
+        ("GET /onchain/networks/new_pools (multi-chain)",   lambda: get("/onchain/networks/new_pools", params={"page": 1})["data"]),
+        ("GET /onchain/networks/solana/new_pools",          lambda: get("/onchain/networks/solana/new_pools", params={"page": 1})["data"]),
+        ("GET /onchain/networks/base/new_pools",            lambda: get("/onchain/networks/base/new_pools", params={"page": 1})["data"]),
+        ("GET /onchain/networks/bsc/new_pools",             lambda: get("/onchain/networks/bsc/new_pools", params={"page": 1})["data"]),
+        ("GET /onchain/tokens/info_recently_updated",       lambda: get("/onchain/tokens/info_recently_updated")["data"]),
+    ]
+    for name, fn in checks:
         total += 1
-        if check(f"GET /onchain/networks/{net}/new_pools",
-                 lambda n=net: get(f"/onchain/networks/{n}/new_pools", params={"page": 1})["data"]):
+        if check(name, fn):
             passed += 1
 
-    total += 1
-    if check("GET /onchain/tokens/info_recently_updated",
-             lambda: get("/onchain/tokens/info_recently_updated")["data"]):
-        passed += 1
-
-    # Megafilter: paid only — expect failure on Demo, success on Pro
+    # Megafilter is paid-only. Expect a SKIP on Demo.
     total += 1
     try:
         get("/onchain/pools/megafilter", params={"pool_created_hour_max": 48})
@@ -61,7 +51,7 @@ def main() -> None:
             print(f"  [FAIL] GET /onchain/pools/megafilter  →  {e}")
 
     print(f"\n{passed}/{total} checks passed.")
-    sys.exit(0 if passed >= total - 1 else 1)  # allow Megafilter skip on Demo
+    sys.exit(0 if passed >= total - 1 else 1)
 
 
 if __name__ == "__main__":

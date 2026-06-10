@@ -7,3 +7,4 @@ output/json/*.json
 output/charts/*.png
 seen_tokens.json
 .DS_Store
+ARTICLE*.md
